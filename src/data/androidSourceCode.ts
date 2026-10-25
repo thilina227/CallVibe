@@ -1001,30 +1001,61 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
-      - name: Grant Execute Permission for Gradle Wrapper
-        run: chmod +x gradlew || true
+      - name: Locate Android Project & Grant Permissions
+        id: locate
+        run: |
+          # Auto-locate project directory in case files were committed inside a subfolder
+          PROJECT_DIR=$(find . -name "settings.gradle.kts" -o -name "build.gradle.kts" | head -n 1 | xargs -r dirname)
+          if [ -z "$PROJECT_DIR" ]; then
+            PROJECT_DIR="."
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_OUTPUT
+          echo "Found Android project at: $PROJECT_DIR"
+          
+          if [ -f "$PROJECT_DIR/gradlew" ]; then
+            chmod +x "$PROJECT_DIR/gradlew"
+          fi
 
       - name: Build Android APK
-        run: ./gradlew assembleRelease assembleDebug --stacktrace
+        run: |
+          cd "\${{ steps.locate.outputs.PROJECT_DIR }}"
+          
+          # If gradlew is missing but system gradle exists, generate wrapper
+          if [ ! -f "./gradlew" ] && command -v gradle >/dev/null 2>&1; then
+            echo "Generating Gradle wrapper..."
+            gradle wrapper || true
+          fi
+          
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleRelease assembleDebug --stacktrace
+          elif command -v gradle >/dev/null 2>&1 && [ -f "build.gradle.kts" ]; then
+            gradle assembleRelease assembleDebug --stacktrace
+          else
+            echo "::error::No Android project files found! Your repository currently only contains the .github workflow file. Please upload the unzipped project files (app/ folder, build.gradle.kts, settings.gradle.kts, gradlew) to this repository."
+            exit 1
+          fi
 
       - name: Organize Artifacts & Generate Checksums
         run: |
           mkdir -p release-artifacts
           TAG="\${{ steps.vars.outputs.TAG }}"
+          PDIR="\${{ steps.locate.outputs.PROJECT_DIR }}"
           
-          # Pick release APK if present, fallback to debug APK
-          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            cp app/build/outputs/apk/release/app-release.apk "release-artifacts/CallVibeGuard-\${TAG}.apk"
+          APK_PATH=$(find "$PDIR" -type f -name "*.apk" | grep -E "app-(release|debug)\.apk" | head -n 1)
+          if [ -n "$APK_PATH" ]; then
+            echo "Found APK: $APK_PATH"
+            cp "$APK_PATH" "release-artifacts/CallVibeGuard-\${TAG}.apk"
           else
-            cp app/build/outputs/apk/debug/app-debug.apk "release-artifacts/CallVibeGuard-\${TAG}.apk"
+            echo "::error::No compiled APK found in outputs."
+            exit 1
           fi
           
-          # Generate SHA256 Checksum
           cd release-artifacts
           sha256sum "CallVibeGuard-\${TAG}.apk" > "CallVibeGuard-\${TAG}.apk.sha256"
           echo "=== Artifact Checksum ==="
