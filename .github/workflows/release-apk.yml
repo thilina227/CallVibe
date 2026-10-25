@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master ]
     tags:
-      - 'v*' # Trigger on version tags (e.g. v1.0.0)
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -14,7 +14,7 @@ on:
       release_title:
         description: 'Release Title'
         required: false
-        default: 'CallVibe Guard Release'
+        default: 'CallVibe Guard v1.0.0'
       is_prerelease:
         description: 'Mark as Pre-release'
         type: boolean
@@ -53,11 +53,16 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
       - name: Accept Android SDK Licenses
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
-      - name: Locate Android Project & Grant Permissions
+      - name: Locate Android Project & Prepare Wrapper
         id: locate
         run: |
           PROJECT_DIR=$(find . -name "settings.gradle.kts" -o -name "build.gradle.kts" | head -n 1 | xargs -r dirname)
@@ -67,26 +72,29 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_OUTPUT
           echo "Found Android project at: $PROJECT_DIR"
           
-          if [ -f "$PROJECT_DIR/gradlew" ]; then
-            chmod +x "$PROJECT_DIR/gradlew"
+          cd "$PROJECT_DIR"
+          # Ensure gradlew has executable permissions
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
           fi
-
-      - name: Verify Gradle Wrapper & Assets
-        run: |
-          PDIR="${{ steps.locate.outputs.PROJECT_DIR }}"
-          if [ ! -f "$PDIR/gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "Downloading gradle-wrapper.jar..."
-            mkdir -p "$PDIR/gradle/wrapper"
-            curl -fsSL -o "$PDIR/gradle/wrapper/gradle-wrapper.jar" https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar
-          fi
-          if [ -f "$PDIR/gradlew" ]; then
-            chmod +x "$PDIR/gradlew"
+          
+          # Test if the wrapper can execute. If wrapper fails (e.g. missing/corrupt jar), regenerate via gradle CLI
+          if ! ./gradlew --version >/dev/null 2>&1; then
+            echo "Gradle wrapper failed check, regenerating wrapper with Gradle 8.9..."
+            gradle wrapper --gradle-version 8.9 --distribution-type bin
+            chmod +x ./gradlew
           fi
 
       - name: Build Android APK
         run: |
           cd "${{ steps.locate.outputs.PROJECT_DIR }}"
-          ./gradlew assembleRelease --stacktrace --no-daemon
+          if ./gradlew --version >/dev/null 2>&1; then
+            echo "Building with ./gradlew..."
+            ./gradlew assembleRelease --stacktrace --no-daemon
+          else
+            echo "Falling back to system gradle..."
+            gradle assembleRelease --stacktrace --no-daemon
+          fi
 
       - name: Organize Artifacts & Generate Checksums
         run: |
@@ -95,6 +103,10 @@ jobs:
           PDIR="${{ steps.locate.outputs.PROJECT_DIR }}"
           
           APK_PATH=$(find "$PDIR" -type f -name "*.apk" | grep -E "app-(release|debug)\.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find "$PDIR" -type f -name "*.apk" | head -n 1)
+          fi
+          
           if [ -n "$APK_PATH" ]; then
             echo "Found APK: $APK_PATH"
             cp "$APK_PATH" "release-artifacts/CallVibeGuard-${TAG}.apk"
@@ -114,9 +126,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Creating and pushing tag $TAG to repository..."
+            echo "Creating tag $TAG..."
             git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG" || echo "Tag push skipped or already remote"
+            git push origin "$TAG" || echo "Tag push skipped (softprops/action-gh-release will manage tag creation)"
           else
             echo "Tag $TAG exists locally"
           fi
