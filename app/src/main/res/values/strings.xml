@@ -2,4 +2,6 @@
     <string name="app_name">CallVibe Guard</string>
     <string name="channel_name">Call Connection Monitor</string>
     <string name="channel_description">Persistent foreground service for call answer vibration</string>
+    <string name="accessibility_service_name">CallVibe Call Answer Detector</string>
+    <string name="accessibility_description">Monitors outgoing call connection screen to trigger haptic answer vibration and acoustic mic mute guard.</string>
 </resources>

@@ -48,7 +48,32 @@
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
 
-        <!-- Telecom InCallService for millisecond-accurate answer detection -->
+        <!-- Notification Listener Service for Millisecond Call Answer Detection (Universal) -->
+        <service
+            android:name=".service.CallNotificationListenerService"
+            android:label="CallVibe Call Answer Detector"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Optional Accessibility Service for Dialer UI Detection -->
+        <service
+            android:name=".service.CallAccessibilityService"
+            android:label="@string/accessibility_service_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- Telecom InCallService for direct Telecom framework hooks -->
         <service
             android:name=".service.CallVibeInCallService"
             android:permission="android.permission.BIND_INCALL_SERVICE"

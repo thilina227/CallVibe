@@ -4,84 +4,71 @@ An Android utility application that triggers a **1/4-second (250ms) tactile vibr
 
 ---
 
-## ✨ Features & Innovation
+## ⚡ Why Was Vibration Not Firing & How It Is Solved
 
-1. **1/4-Second (250ms) Haptic Pulse**:
-   - The moment the remote party answers (`Call.STATE_ACTIVE` / `CALL_STATE_OFFHOOK`), your device vibrates for exactly 250ms.
-   - Eliminates the need to hold the phone to your ear while listening to dial tones or ringing tones.
+On modern Android devices (Android 10 through Android 15), detecting when an outgoing call is answered and vibrating during an active call requires three specific platform implementations:
 
-2. **Simultaneous Microphone Mute Guard**:
-   - Automatically silences the microphone (`AudioManager.setMicrophoneMute(true)`) simultaneously during the 250ms vibration window.
-   - Prevents the vibration motor's mechanical rumble (150Hz–220Hz acoustic vibration) from transmitting into the receiver's earpiece.
-   - Unmutes automatically at 280ms so your speech flows naturally and without delays.
+1. **Android In-Call Vibration Suppression Bypass**:
+   - When an Android phone enters in-call mode (`MODE_IN_CALL` or `MODE_IN_COMMUNICATION`), Android's OS `VibratorService` **silently drops** vibrations that lack explicit communication signaling flags.
+   - **Fix implemented**: CallVibe now targets `VibrationAttributes.USAGE_COMMUNICATION_REQUEST` (Android 13+) and `AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING` with `FLAG_AUDIBILITY_ENFORCED` (Android 8–12), ensuring the 250ms pulse triggers through the hardware motor even while a call is live.
 
-3. **Background Reliability (Android 10 - 15)**:
-   - Uses an official Telecom `InCallService` paired with a lightweight `ForegroundService` to ensure the call monitor runs reliably without being killed by OEM task killers (Samsung OneUI, Xiaomi HyperOS, OnePlus OxygenOS, Google Pixel).
+2. **Universal Call Answer Detection (Notification Monitor)**:
+   - Android Telecom restricts `InCallService` bindings for third-party non-default dialers unless granted special companion roles.
+   - **Fix implemented**: CallVibe now includes a universal `CallNotificationListenerService`. During outgoing calls, your system dialer (Google Phone, Samsung OneUI Phone, Xiaomi, OnePlus, Motorola) creates an in-call notification. The instant the remote party picks up, the dialer updates this notification with `EXTRA_SHOW_CHRONOMETER = true` or starts the duration timer (`00:01`). CallVibe catches this sub-second state change and triggers the vibration instantly!
+
+3. **In-App Hardware Test & Diagnostics**:
+   - Open CallVibe Guard on your phone.
+   - Tap **"Test 1/4s Vibration & Mic Mute Now"** to immediately verify your phone's vibration motor.
+   - Follow the **Readiness Checklist** in the app to enable **Notification Access** (which allows CallVibe to watch the dialer connection state without replacing your default phone app).
 
 ---
 
-## 🚀 Building & Exporting the APK
+## ✨ Features & Capabilities
 
-### Method 1: Automated Cloud Build & Release (GitHub Actions)
+1. **1/4-Second (250ms) Haptic Pulse**:
+   - The exact moment the other person answers your call, your phone gives a crisp 250ms buzz.
+   - No need to keep the phone pressed to your ear while listening to ringing tones.
+
+2. **Simultaneous Microphone Mute Guard**:
+   - Silences the microphone (`AudioManager.setMicrophoneMute(true)`) simultaneously during the 250ms vibration.
+   - Completely eliminates mechanical motor buzz (150Hz–220Hz resonance) from leaking into the call audio.
+   - Automatically un-mutes at 280ms for seamless conversation.
+
+3. **Multi-Engine Call Detection Architecture**:
+   - **Notification Call Monitor**: 100% compatible with Google Phone, Samsung OneUI, Xiaomi HyperOS, and OxygenOS without replacing your dialer.
+   - **Telecom InCallService**: Direct Telecom framework hooks for devices configured with companion dialer roles.
+   - **Accessibility Screen Observer**: Optional fallback reading dialer timer transitions.
+   - **Strict Deduplication**: `CallEventCoordinator` guarantees that exactly one vibration fires per answered call.
+
+4. **Live Activity & Diagnostics Feed**:
+   - Real-time logging directly inside the app showing call start, connection detection, and haptic firing timestamps.
+
+---
+
+## 🚀 Building & Releasing the APK
+
+### Automated Cloud Build & Release (GitHub Actions)
 This repository includes `.github/workflows/release-apk.yml`.
 
 1. **Trigger via Git Tag**:
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v1.0.1
+   git push origin v1.0.1
    ```
 2. **Trigger Manually via GitHub UI**:
    - Go to the **Actions** tab on your GitHub repository.
    - Select **Build & Release Android APK** on the left.
-   - Click **Run workflow**, enter your tag (e.g. `v1.0.0`), and click Run.
-3. Once the workflow turns green, navigate to the **Releases** tab on GitHub to download your installable `CallVibeGuard-v1.0.0.apk`!
-
-### Method 2: Android Studio
-1. Open **Android Studio** (Ladybug, Iguana, Koala, Hedgehog, or newer).
-2. Click **File > Open…** and choose this repository root folder.
-3. Let Gradle sync dependencies.
-4. Click **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-5. Find the output APK at `app/build/outputs/apk/debug/app-debug.apk`.
-
-### Method 3: Command Line
-```bash
-# On Linux / macOS:
-chmod +x gradlew
-./gradlew assembleRelease
-
-# On Windows:
-gradlew.bat assembleRelease
-```
+   - Click **Run workflow**, enter your tag (e.g. `v1.0.1`), and click **Run workflow**.
+3. Download the compiled `CallVibeGuard-v1.0.1.apk` from the **Releases** tab on GitHub!
 
 ---
 
-## 📋 Project Structure
-```text
-├── app/
-│   ├── build.gradle.kts
-│   └── src/main/
-│       ├── AndroidManifest.xml
-│       ├── java/com/callvibe/guard/
-│       │   ├── CallVibeApplication.kt
-│       │   ├── controller/CallAudioVibrateController.kt
-│       │   ├── data/PreferencesManager.kt
-│       │   ├── receiver/CallStateReceiver.kt
-│       │   ├── receiver/BootReceiver.kt
-│       │   ├── service/CallConnectService.kt
-│       │   ├── service/CallVibeInCallService.kt
-│       │   └── ui/MainActivity.kt
-│       └── res/values/
-│           ├── strings.xml
-│           └── themes.xml
-├── gradle/
-│   ├── libs.versions.toml
-│   └── wrapper/gradle-wrapper.properties
-├── .github/workflows/
-│   └── release-apk.yml
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradle.properties
-├── gradlew
-├── gradlew.bat
-└── README.md
-```
+## 📱 Quick Setup On Your Device
+
+1. Install the APK on your Android device and open **CallVibe Guard**.
+2. Tap **"📳 Test 1/4s Vibration & Mic Mute Now"** to confirm the motor vibrates firmly.
+3. In the **Readiness Checklist**:
+   - Tap **Enable** next to **Notification Access** and toggle on **CallVibe Guard**.
+   - Tap **Grant** for Phone & Audio permissions if prompted.
+   - (Optional) Tap **Exempt** to prevent battery saver from pausing the service in the background.
+4. Place an outgoing call to any phone — feel the crisp 250ms vibration the moment they answer!

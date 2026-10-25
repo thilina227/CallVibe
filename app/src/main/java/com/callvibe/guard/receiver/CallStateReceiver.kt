@@ -5,14 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.telephony.TelephonyManager
 import android.util.Log
-import com.callvibe.guard.controller.CallAudioVibrateController
+import com.callvibe.guard.controller.CallEventCoordinator
 import com.callvibe.guard.data.PreferencesManager
 
 /**
  * CallStateReceiver
  * 
- * Monitors standard telephony broadcasts for outgoing calls and detects
- * the transition from OFFHOOK (dialing) to connected state.
+ * Monitors standard telephony broadcasts for outgoing calls.
+ * Feeds call lifecycle changes into CallEventCoordinator.
  */
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -20,7 +20,6 @@ class CallStateReceiver : BroadcastReceiver() {
         private const val TAG = "CallStateReceiver"
         private var lastState = TelephonyManager.CALL_STATE_IDLE
         private var isOutgoing = false
-        private var callStartTime = 0L
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -28,13 +27,13 @@ class CallStateReceiver : BroadcastReceiver() {
         if (!prefs.isServiceEnabled()) return
 
         val action = intent.action ?: return
-        val controller = CallAudioVibrateController(context)
 
+        @Suppress("DEPRECATION")
         if (action == Intent.ACTION_NEW_OUTGOING_CALL) {
             val phoneNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER)
             isOutgoing = true
-            callStartTime = System.currentTimeMillis()
-            Log.d(TAG, "Outgoing call initiated to: $phoneNumber")
+            Log.d(TAG, "Outgoing call broadcast initiated to: $phoneNumber")
+            CallEventCoordinator.notifyCallStarted("Telephony Broadcast", phoneNumber ?: "Outgoing")
             return
         }
 
@@ -50,18 +49,15 @@ class CallStateReceiver : BroadcastReceiver() {
             if (state != lastState) {
                 when (state) {
                     TelephonyManager.CALL_STATE_OFFHOOK -> {
-                        // For outgoing calls, OFFHOOK transition triggers answer vibration
+                        Log.d(TAG, "Telephony state changed to OFFHOOK (isOutgoing=$isOutgoing)")
                         if (isOutgoing) {
-                            Log.i(TAG, "Outgoing call connected -> triggering 1/4s vibration and mute guard")
-                            controller.onCallConnected(
-                                vibrationDurationMs = prefs.getVibrationDuration(),
-                                muteMicrophone = prefs.isMuteGuardEnabled()
-                            )
+                            CallEventCoordinator.addLog("Radio OFFHOOK (Call line engaged)", source = "TelephonyReceiver")
                         }
                     }
                     TelephonyManager.CALL_STATE_IDLE -> {
-                        if (isOutgoing && prefs.isVibrateOnCallEndEnabled()) {
-                            controller.onCallEnded()
+                        Log.d(TAG, "Telephony state changed to IDLE")
+                        if (isOutgoing) {
+                            CallEventCoordinator.notifyCallEnded(context, "Telephony Broadcast")
                         }
                         isOutgoing = false
                     }
