@@ -53,13 +53,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Locate Android Project & Grant Permissions
         id: locate
         run: |
-          # Auto-locate project directory in case files were committed inside a subfolder
           PROJECT_DIR=$(find . -name "settings.gradle.kts" -o -name "build.gradle.kts" | head -n 1 | xargs -r dirname)
           if [ -z "$PROJECT_DIR" ]; then
             PROJECT_DIR="."
@@ -77,7 +77,7 @@ jobs:
           if [ -f "./gradlew" ]; then
             ./gradlew assembleRelease assembleDebug --stacktrace
           else
-            echo "::error::gradlew not found! Make sure your project files (app/, settings.gradle.kts, gradlew) are uploaded to this repository."
+            echo "::error::gradlew not found! Please make sure you have uploaded the project files (app/, settings.gradle.kts, gradlew) to this repository."
             exit 1
           fi
 
