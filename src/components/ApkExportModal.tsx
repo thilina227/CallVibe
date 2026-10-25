@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { ANDROID_FILES } from '../data/androidSourceCode';
+import { AndroidSourceFile } from '../types';
 import {
   X,
   Download,
@@ -260,31 +262,80 @@ export const ApkExportModal: React.FC<ApkExportModalProps> = ({
           {/* METHOD 3: CLOUD GITHUB ACTIONS PIPELINE & RELEASE */}
           {activeMethod === 'github' && (
             <div className="space-y-4 text-xs">
-              <div className="p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl">
-                <span className="text-emerald-300 font-bold block mb-1">
-                  Automated GitHub Release & Cloud CI Pipeline
-                </span>
-                <p className="text-slate-400 text-[11px] leading-relaxed">
-                  We pre-configured <code className="text-slate-300">.github/workflows/release-apk.yml</code> inside the exported ZIP. Pushing a version tag will automatically compile the APK, compute SHA-256 checksums, and publish an official GitHub Release with the installable <code className="text-emerald-300">.apk</code> asset attached!
+              {/* Alert: Why the workflow might not appear yet */}
+              <div className="p-4 bg-amber-950/30 border border-amber-500/40 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-amber-300 font-bold">
+                  <span>⚠️ Don't see "Build &amp; Release Android APK" in the Actions tab?</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  If you uploaded files via the GitHub.com website, folders starting with a dot (<code className="text-amber-300 font-mono">.github/</code>) are <strong>hidden by operating systems</strong> and were not uploaded. GitHub Actions only detects workflows if the file exists at <code className="text-emerald-300 font-mono">.github/workflows/release-apk.yml</code>.
                 </p>
               </div>
 
-              <div className="space-y-2.5">
-                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-slate-800 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs">1</span>
-                  <div className="flex-1">
-                    <span className="font-semibold text-white block">Push Project to GitHub</span>
-                    <span className="text-slate-400 text-[11px] block mt-0.5">
-                      Create a repository on GitHub, extract the downloaded project ZIP, and push the files.
-                    </span>
-                  </div>
+              {/* 30-Second Instant Fix Directly on GitHub.com */}
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white text-sm">
+                    ⚡ Instant 30-Second Fix (Create file directly on GitHub.com)
+                  </span>
+                  <button
+                    onClick={() => {
+                      const workflowFile = ANDROID_FILES.find(f => f.name === 'release-apk.yml');
+                      if (workflowFile) {
+                        copyCommand(workflowFile.content);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-emerald-500/20"
+                  >
+                    {copiedCmd ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied Workflow YAML!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Workflow Code</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
+                <ol className="list-decimal pl-5 space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+                  <li>
+                    Open your repository on <strong>GitHub.com</strong> and click <strong className="text-white">Add file &gt; Create new file</strong>.
+                  </li>
+                  <li>
+                    In the filename box, type: <code className="text-emerald-400 bg-slate-900 px-1.5 py-0.5 rounded font-mono select-all">.github/workflows/release-apk.yml</code>
+                    <br />
+                    <span className="text-slate-500 text-[10px]">(Typing the slashes <code className="text-slate-400">/</code> automatically creates the subfolders on GitHub)</span>
+                  </li>
+                  <li>
+                    Click the <strong>"Copy Workflow Code"</strong> button above, paste it into the editor, and click the green <strong className="text-white">Commit changes</strong> button.
+                  </li>
+                  <li>
+                    Now click the <strong className="text-emerald-400">Actions</strong> tab: <strong>"Build &amp; Release Android APK"</strong> will instantly appear in the left sidebar!
+                  </li>
+                </ol>
+              </div>
+
+              {/* Workflow Permissions Note */}
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                <span className="font-semibold text-white block text-[11px]">
+                  🔑 Make sure Releases are allowed in your GitHub Repo:
+                </span>
+                <p className="text-slate-400 text-[11px]">
+                  Go to <strong>Settings &gt; Actions &gt; General</strong>, scroll down to <strong>Workflow permissions</strong>, and select <strong className="text-slate-200">"Read and write permissions"</strong> (then click Save). This allows GitHub to attach the compiled APK to your Releases.
+                </p>
+              </div>
+
+              {/* Tagging / Dispatch Steps */}
+              <div className="space-y-2">
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs">2</span>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">Tag a Release (Automated Trigger)</span>
+                      <span className="font-semibold text-white">How to Trigger the APK Build &amp; Release</span>
                       <button
                         onClick={() => copyCommand('git tag v1.0.0 && git push origin v1.0.0')}
                         className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
@@ -297,12 +348,15 @@ export const ApkExportModal: React.FC<ApkExportModalProps> = ({
                         <span>Copy Tag Command</span>
                       </button>
                     </div>
+                    <p className="text-slate-400 text-[11px] mb-1.5">
+                      Either push a tag from your terminal:
+                    </p>
                     <pre className="font-mono text-emerald-400 text-xs bg-slate-900 p-2 rounded-lg">
                       git tag v1.0.0 && git push origin v1.0.0
                     </pre>
-                    <span className="text-[11px] text-slate-400 block mt-1">
-                      Or go to GitHub Actions &gt; <strong>Build &amp; Release Android APK</strong> &gt; click <strong>Run workflow</strong> and type your tag name.
-                    </span>
+                    <p className="text-slate-400 text-[11px] mt-1.5">
+                      Or go to the <strong>Actions</strong> tab &gt; click <strong>Build &amp; Release Android APK</strong> &gt; click <strong className="text-emerald-400">Run workflow</strong> &gt; type your tag name (e.g. <code className="text-slate-300">v1.0.0</code>) and click the green button.
+                    </p>
                   </div>
                 </div>
 
@@ -311,7 +365,7 @@ export const ApkExportModal: React.FC<ApkExportModalProps> = ({
                   <div className="flex-1">
                     <span className="font-semibold text-white block">Download Your APK from GitHub Releases</span>
                     <span className="text-slate-400 text-[11px] block mt-0.5">
-                      In ~2 minutes, navigate to the <strong className="text-slate-200">Releases</strong> section of your GitHub repo. You'll see <strong className="text-emerald-400">CallVibe Guard Release v1.0.0</strong> with <code className="text-amber-300">CallVibeGuard-v1.0.0.apk</code> and SHA-256 checksum ready for direct download to any phone!
+                      When the job finishes (~2 minutes), click the <strong className="text-slate-200">Releases</strong> tab on the right side of your GitHub repo main page. Download <code className="text-amber-300">CallVibeGuard-v1.0.0.apk</code> straight to your Android phone!
                     </span>
                   </div>
                 </div>
