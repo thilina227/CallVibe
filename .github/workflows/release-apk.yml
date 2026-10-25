@@ -1,0 +1,112 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*' # Triggers on release tags like v1.0.0, v1.0.1
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_title:
+        description: 'Release Title'
+        required: false
+        default: 'CallVibe Guard Release'
+      is_prerelease:
+        description: 'Mark as Pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v1.0.0-${GITHUB_SHA::7}"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "Using Tag: $TAG"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: chmod +x gradlew || true
+
+      - name: Build Android APK
+        run: ./gradlew assembleRelease assembleDebug --stacktrace
+
+      - name: Organize Artifacts & Generate Checksums
+        run: |
+          mkdir -p release-artifacts
+          TAG="${{ steps.vars.outputs.TAG }}"
+          
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "release-artifacts/CallVibeGuard-${TAG}.apk"
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk "release-artifacts/CallVibeGuard-${TAG}.apk"
+          fi
+          
+          cd release-artifacts
+          sha256sum "CallVibeGuard-${TAG}.apk" > "CallVibeGuard-${TAG}.apk.sha256"
+          cat "CallVibeGuard-${TAG}.apk.sha256"
+
+      - name: Upload APK Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CallVibeGuard-${{ steps.vars.outputs.TAG }}-APK
+          path: release-artifacts/*
+          retention-days: 30
+
+      - name: Create or Update GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.TAG }}
+          name: ${{ github.event.inputs.release_title || steps.vars.outputs.TAG }}
+          draft: false
+          prerelease: ${{ github.event.inputs.is_prerelease || false }}
+          files: |
+            release-artifacts/CallVibeGuard-${{ steps.vars.outputs.TAG }}.apk
+            release-artifacts/CallVibeGuard-${{ steps.vars.outputs.TAG }}.apk.sha256
+          body: |
+            ## 📱 CallVibe Guard Android Release (${{ steps.vars.outputs.TAG }})
+
+            ### ✨ Key Features
+            - **1/4-Second (250ms) Haptic Pulse**: Immediate tactile cue when the outgoing call is answered.
+            - **Simultaneous Microphone Mute Guard**: Automatically mutes the mic during the 250ms vibration to prevent mechanical buzz from reaching the receiver.
+            - **Seamless Unmute**: Instantly restores audio input after vibration.
+            - **Foreground Service Persistence**: Reliable telephony background monitoring on Android 10 through 15.
+
+            ---
+
+            ### 📦 Download & Install
+            1. Download **`CallVibeGuard-${{ steps.vars.outputs.TAG }}.apk`** below directly to your phone.
+            2. Tap to install (enable *"Install Unknown Apps"* if prompted).
