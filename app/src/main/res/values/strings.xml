@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">CallVibe Guard</string>
+    <string name="channel_name">Call Connection Monitor</string>
+    <string name="channel_description">Persistent foreground service for call answer vibration</string>
+</resources>

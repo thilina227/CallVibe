@@ -74,10 +74,17 @@ jobs:
       - name: Build Android APK
         run: |
           cd "${{ steps.locate.outputs.PROJECT_DIR }}"
+          if [ ! -f "./gradlew" ] && command -v gradle >/dev/null 2>&1; then
+            echo "Generating wrapper using runner gradle..."
+            gradle wrapper || true
+          fi
           if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
             ./gradlew assembleRelease assembleDebug --stacktrace
+          elif command -v gradle >/dev/null 2>&1; then
+            gradle assembleRelease assembleDebug --stacktrace
           else
-            echo "::error::gradlew not found! Please make sure you have uploaded the project files (app/, settings.gradle.kts, gradlew) to this repository."
+            echo "::error::gradlew not found and gradle not installed. Please ensure project files are uploaded."
             exit 1
           fi
 
