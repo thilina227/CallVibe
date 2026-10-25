@@ -257,41 +257,61 @@ export const ApkExportModal: React.FC<ApkExportModalProps> = ({
             </div>
           )}
 
-          {/* METHOD 3: CLOUD GITHUB ACTIONS */}
+          {/* METHOD 3: CLOUD GITHUB ACTIONS PIPELINE & RELEASE */}
           {activeMethod === 'github' && (
             <div className="space-y-4 text-xs">
               <div className="p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl">
                 <span className="text-emerald-300 font-bold block mb-1">
-                  Don't have Android Studio installed on your computer?
+                  Automated GitHub Release & Cloud CI Pipeline
                 </span>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  We pre-configured a continuous integration file (<code className="text-slate-300">.github/workflows/build-apk.yml</code>) inside the exported ZIP. You can use GitHub's free cloud servers to compile your APK without installing any developer tools!
+                  We pre-configured <code className="text-slate-300">.github/workflows/release-apk.yml</code> inside the exported ZIP. Pushing a version tag will automatically compile the APK, compute SHA-256 checksums, and publish an official GitHub Release with the installable <code className="text-emerald-300">.apk</code> asset attached!
                 </p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs">1</span>
-                  <div>
-                    <span className="font-semibold text-white block">Create a Free GitHub Repo</span>
-                    <span className="text-slate-400 text-[11px]">Go to github.com and create a new repository (e.g. "CallVibeGuard").</span>
+                  <div className="flex-1">
+                    <span className="font-semibold text-white block">Push Project to GitHub</span>
+                    <span className="text-slate-400 text-[11px] block mt-0.5">
+                      Create a repository on GitHub, extract the downloaded project ZIP, and push the files.
+                    </span>
                   </div>
                 </div>
 
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs">2</span>
-                  <div>
-                    <span className="font-semibold text-white block">Upload Project Files</span>
-                    <span className="text-slate-400 text-[11px]">Unzip the downloaded project and push or drag & drop the files into your repository.</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-white">Tag a Release (Automated Trigger)</span>
+                      <button
+                        onClick={() => copyCommand('git tag v1.0.0 && git push origin v1.0.0')}
+                        className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedCmd === 'git tag v1.0.0 && git push origin v1.0.0' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>Copy Tag Command</span>
+                      </button>
+                    </div>
+                    <pre className="font-mono text-emerald-400 text-xs bg-slate-900 p-2 rounded-lg">
+                      git tag v1.0.0 && git push origin v1.0.0
+                    </pre>
+                    <span className="text-[11px] text-slate-400 block mt-1">
+                      Or go to GitHub Actions &gt; <strong>Build &amp; Release Android APK</strong> &gt; click <strong>Run workflow</strong> and type your tag name.
+                    </span>
                   </div>
                 </div>
 
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-emerald-400 font-bold flex items-center justify-center shrink-0 text-xs">3</span>
-                  <div>
-                    <span className="font-semibold text-white block">Download Your APK from GitHub Actions</span>
-                    <span className="text-slate-400 text-[11px]">
-                      Click the <strong className="text-slate-200">Actions</strong> tab. In ~2 minutes, the workflow turns green. Click the run, scroll down to <strong className="text-emerald-400">Artifacts</strong>, and download <code className="text-amber-300">CallVibeGuard-Debug-APK.zip</code>!
+                  <div className="flex-1">
+                    <span className="font-semibold text-white block">Download Your APK from GitHub Releases</span>
+                    <span className="text-slate-400 text-[11px] block mt-0.5">
+                      In ~2 minutes, navigate to the <strong className="text-slate-200">Releases</strong> section of your GitHub repo. You'll see <strong className="text-emerald-400">CallVibe Guard Release v1.0.0</strong> with <code className="text-amber-300">CallVibeGuard-v1.0.0.apk</code> and SHA-256 checksum ready for direct download to any phone!
                     </span>
                   </div>
                 </div>

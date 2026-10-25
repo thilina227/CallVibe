@@ -820,7 +820,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -942,31 +943,65 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }`,
   },
   {
-    name: 'build-apk.yml',
-    path: '.github/workflows/build-apk.yml',
+    name: 'release-apk.yml',
+    path: '.github/workflows/release-apk.yml',
     language: 'xml',
-    description: 'GitHub Actions workflow to automatically compile and export APK in the cloud',
-    content: `name: Build Android APK
+    description: 'GitHub Actions pipeline to build APK, generate release notes & checksums, and publish GitHub Release',
+    content: `name: Build & Release Android APK
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    tags:
+      - 'v*' # Trigger on version tags (e.g. v1.0.0, v1.0.1)
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_title:
+        description: 'Release Title'
+        required: false
+        default: 'CallVibe Guard Release'
+      is_prerelease:
+        description: 'Mark as Pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  build-and-release:
+    name: Build & Publish APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          if [ "\${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="\${{ github.event.inputs.tag_name }}"
+          elif [[ "\${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="\${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v1.0.0-\${GITHUB_SHA::7}"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "Using Tag: $TAG"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -974,15 +1009,62 @@ jobs:
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x gradlew || true
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Android APK
+        run: ./gradlew assembleRelease assembleDebug --stacktrace
 
-      - name: Upload Debug APK Artifact
+      - name: Organize Artifacts & Generate Checksums
+        run: |
+          mkdir -p release-artifacts
+          TAG="\${{ steps.vars.outputs.TAG }}"
+          
+          # Pick release APK if present, fallback to debug APK
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "release-artifacts/CallVibeGuard-\${TAG}.apk"
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk "release-artifacts/CallVibeGuard-\${TAG}.apk"
+          fi
+          
+          # Generate SHA256 Checksum
+          cd release-artifacts
+          sha256sum "CallVibeGuard-\${TAG}.apk" > "CallVibeGuard-\${TAG}.apk.sha256"
+          echo "=== Artifact Checksum ==="
+          cat "CallVibeGuard-\${TAG}.apk.sha256"
+
+      - name: Upload APK Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CallVibeGuard-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 14`,
+          name: CallVibeGuard-\${{ steps.vars.outputs.TAG }}-APK
+          path: release-artifacts/*
+          retention-days: 30
+
+      - name: Create or Update GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: \${{ steps.vars.outputs.TAG }}
+          name: \${{ github.event.inputs.release_title || steps.vars.outputs.TAG }}
+          draft: false
+          prerelease: \${{ github.event.inputs.is_prerelease || false }}
+          files: |
+            release-artifacts/CallVibeGuard-\${{ steps.vars.outputs.TAG }}.apk
+            release-artifacts/CallVibeGuard-\${{ steps.vars.outputs.TAG }}.apk.sha256
+          body: |
+            ## 📱 CallVibe Guard Android Release (\${{ steps.vars.outputs.TAG }})
+
+            ### ✨ Key Features
+            - **1/4-Second (250ms) Haptic Pulse**: Tactile cue alerting caller the instant the call is answered.
+            - **Simultaneous Microphone Mute Guard**: Automatically silences mic during the 250ms vibration to prevent mechanical buzz from reaching receiver.
+            - **Seamless Unmute**: Restores microphone input immediately when vibration ends so speech is natural and clear.
+            - **Foreground Service Persistence**: Reliable telephony event monitoring on Samsung OneUI, Xiaomi HyperOS, OnePlus OxygenOS, and Pixel.
+
+            ---
+
+            ### 📦 Download & Install
+            1. Download **\`CallVibeGuard-\${{ steps.vars.outputs.TAG }}.apk\`** below directly to your Android device.
+            2. Tap to install (enable *"Install Unknown Apps"* if prompted).
+            3. Open CallVibe Guard and grant permissions to activate call protection.
+
+            **Verification:** Checksum attached as \`CallVibeGuard-\${{ steps.vars.outputs.TAG }}.apk.sha256\`.`,
   },
   {
     name: 'README.md',
@@ -995,54 +1077,41 @@ A specialized Android utility that triggers a **1/4-second (250ms) tactile vibra
 
 ---
 
-## 🚀 How to Export & Build the APK
+## 🚀 GitHub Actions CI/CD Pipeline & Releases
 
-You can build and export the \`.apk\` using any of the following 3 methods:
+The project includes an automated GitHub Actions pipeline at \`.github/workflows/release-apk.yml\` that builds the APK and creates an official GitHub Release with downloadable artifacts.
 
-### Method 1: Using Android Studio (Recommended / Easiest GUI)
-1. Download and extract \`CallVibeGuard-AndroidProject.zip\`.
-2. Open **Android Studio** (Ladybug, Iguana, Hedgehog, or newer).
-3. Click **File > Open...** and select the unzipped \`CallVibeGuard\` folder.
-4. Wait for Gradle to finish syncing (takes ~1-2 minutes on first run).
-5. From the top menu bar, click:
-   **Build > Build Bundle(s) / APK(s) > Build APK(s)**
-6. Once compilation finishes, a popup appears in the bottom right corner:
-   *"APK(s) generated successfully for 1 module: locate"*
-7. Click **locate**. Your compiled file is ready at:
-   \`app/build/outputs/apk/debug/app-debug.apk\`
-8. Connect your phone via USB and run \`adb install app/build/outputs/apk/debug/app-debug.apk\`, or simply send/upload the \`.apk\` to your phone and tap to install!
+### How to Trigger an Automatic Release:
+1. **Push a Git Tag**:
+   \`\`\`bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   \`\`\`
+   GitHub Actions will automatically build \`CallVibeGuard-v1.0.0.apk\`, generate SHA-256 checksums, and publish an official GitHub Release!
+
+2. **Trigger Manually via GitHub UI (workflow_dispatch)**:
+   - Go to your repository on GitHub.
+   - Click the **Actions** tab.
+   - Select **Build & Release Android APK**.
+   - Click **Run workflow**, enter your version tag (e.g., \`v1.0.0\`), and click Run.
 
 ---
 
-### Method 2: Command Line (Fastest)
-If you have Android SDK and Java 17 installed:
+## 💻 Local Build Methods
+
+### Method 1: Using Android Studio
+1. Open Android Studio > **File > Open** > select unzipped folder.
+2. Click **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
+3. Find compiled APK at \`app/build/outputs/apk/debug/app-debug.apk\`.
+
+### Method 2: Command Line
 \`\`\`bash
 # On macOS / Linux:
-./gradlew assembleDebug
+./gradlew assembleRelease
 
 # On Windows:
-gradlew.bat assembleDebug
+gradlew.bat assembleRelease
 \`\`\`
-The compiled APK will be created at:
-\`app/build/outputs/apk/debug/app-debug.apk\`
-
----
-
-### Method 3: Cloud Build via GitHub (No Android Studio Required!)
-If you do not have Android Studio installed on your computer:
-1. Create a free repository on [GitHub](https://github.com).
-2. Upload/push this unzipped project to your repository.
-3. The included \`.github/workflows/build-apk.yml\` will automatically trigger on GitHub Actions.
-4. Click the **Actions** tab on your repository.
-5. In ~2 minutes, the build will complete.
-6. Click the workflow run and scroll down to **Artifacts** to download \`CallVibeGuard-Debug-APK\` (.zip containing the ready-to-install \`.apk\`).
-
----
-
-## ⚙️ Required Permissions & Setup
-When installed on Android 10, 11, 12, 13, 14, or 15:
-- **Phone State & Audio**: The app requests \`READ_PHONE_STATE\` and \`MODIFY_AUDIO_SETTINGS\` to detect call connection and silence the mic during vibration.
-- **Battery Optimization**: On Samsung (OneUI), Xiaomi (HyperOS/MIUI), or OnePlus (OxygenOS), exclude CallVibe Guard from battery optimization so background services stay active.
 `,
   },
 ];
