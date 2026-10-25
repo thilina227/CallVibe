@@ -1,0 +1,6 @@
+{
+  "name": "CallVibe Guard - Android Call Connect Vibration & Mute",
+  "description": "Smart Android utility that vibrates 1/4 second when an outgoing call connects, simultaneously muting the microphone to prevent motor buzz from disturbing the receiver.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
