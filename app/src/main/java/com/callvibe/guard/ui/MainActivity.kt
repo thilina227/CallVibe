@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
                     onRequestPermissions = { requestRequiredPermissions() },
                     onOpenNotificationAccess = { openNotificationListenerSettings() },
                     onOpenBatteryOptimization = { openBatteryOptimizationSettings() },
+                    onOpenAppDetails = { openAppDetailsSettings() },
                     onToggleService = { enabled ->
                         prefs.setServiceEnabled(enabled)
                         if (enabled) {
@@ -140,6 +141,21 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun openAppDetailsSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            } catch (ex: Exception) {
+                Toast.makeText(this, "Please open Settings -> Apps -> CallVibe Guard", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 }
 
 fun isNotificationAccessGranted(context: Context): Boolean {
@@ -165,6 +181,7 @@ fun MainScreen(
     onRequestPermissions: () -> Unit,
     onOpenNotificationAccess: () -> Unit,
     onOpenBatteryOptimization: () -> Unit,
+    onOpenAppDetails: () -> Unit,
     onToggleService: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
@@ -286,6 +303,39 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth().height(44.dp)
                         ) {
                             Text("👉 Tap Here to Enable Notification Access", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+
+                        // Android 13+ Restricted Setting Helper Card
+                        Surface(
+                            color = Color(0xFF450A0A),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFB91C1C), RoundedCornerShape(10.dp))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "🔒 Android 13+ (Pixel / Samsung / Xiaomi): Is switch grayed out?",
+                                    color = Color(0xFFFCA5A5),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "If Android shows \"Restricted setting: Unavailable\":\n1. Tap the red button above first (registers the attempt)\n2. Tap the button below to open App Info\n3. Tap the 3 dots (⋮) in the top-right corner\n4. Tap \"Allow restricted settings\" & confirm with fingerprint/PIN\n5. Return here & toggle Notification Access ON",
+                                    color = Color(0xFFE2E8F0),
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp
+                                )
+                                OutlinedButton(
+                                    onClick = onOpenAppDetails,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                                    modifier = Modifier.fillMaxWidth().height(38.dp)
+                                ) {
+                                    Text("⚙️ Open App Info (For 3-Dot ⋮ Menu)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
                         }
                     }
                 }
