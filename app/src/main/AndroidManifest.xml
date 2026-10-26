@@ -5,14 +5,10 @@
 
     <!-- Telephony & Call State Permissions -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     
     <!-- Audio & Hardware Control Permissions -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     
     <!-- Background Service & Reliability -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
