@@ -17,7 +17,7 @@ class CallAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "CallAccessibility"
-        private val TIMER_REGEX = Pattern.compile("^(00:0[0-2]|0:0[0-2])$")
+        private val TIMER_REGEX = Pattern.compile("(?<!\\d)(00:0[0-5]|0:0[0-5])(?!\\d)")
     }
 
     override fun onServiceConnected() {

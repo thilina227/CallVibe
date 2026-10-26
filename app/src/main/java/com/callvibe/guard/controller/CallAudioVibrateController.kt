@@ -122,7 +122,6 @@ class CallAudioVibrateController(private val context: Context) {
                     try {
                         val vibrationAttributes = VibrationAttributes.Builder()
                             .setUsage(VibrationAttributes.USAGE_COMMUNICATION_REQUEST)
-                            .setFlags(VibrationAttributes.FLAG_BYPASS_INTERRUPTION_POLICY)
                             .build()
                         vibrator.vibrate(effect, vibrationAttributes)
                         Log.i(TAG, "📳 Vibrated using VibrationAttributes.USAGE_COMMUNICATION_REQUEST (${durationMs}ms)")

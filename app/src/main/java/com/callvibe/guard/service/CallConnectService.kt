@@ -130,7 +130,11 @@ class CallConnectService : Service() {
                 }
             }
             dynamicReceiver = receiver
-            registerReceiver(receiver, filter)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(receiver, filter)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register telephony listeners", e)
         }
@@ -140,7 +144,7 @@ class CallConnectService : Service() {
         when (state) {
             TelephonyManager.CALL_STATE_OFFHOOK -> {
                 Log.d(TAG, "Telephony OFFHOOK state observed")
-                CallEventCoordinator.addLog("Radio OFFHOOK active", source = "TelephonyListener")
+                CallEventCoordinator.notifyCallStarted("Telephony Radio", "Line offhook")
             }
             TelephonyManager.CALL_STATE_IDLE -> {
                 Log.d(TAG, "Telephony IDLE state observed")

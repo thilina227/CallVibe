@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
         try {
             val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).apply {
-                    putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, "$packageName/com.callvibe.guard.service.CallNotificationListenerService")
+                    putExtra("android.provider.extra.NOTIFICATION_LISTENER_COMPONENT_NAME", "$packageName/com.callvibe.guard.service.CallNotificationListenerService")
                 }
             } else {
                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
@@ -248,6 +248,48 @@ fun MainScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = Color.White
                         )
+                    }
+                }
+            }
+        }
+
+        // CRITICAL ACTION REQUIRED BANNER
+        if (!hasNotificationAccess) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(16.dp))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("⚠️", fontSize = 20.sp)
+                            Text(
+                                text = "Action Required: Grant Notification Access",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "To detect the exact moment when an outgoing call connects, Android requires Notification Access so CallVibe can observe dialer events.",
+                            color = Color(0xFFFCA5A5),
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                        Button(
+                            onClick = onOpenNotificationAccess,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Text("👉 Tap Here to Enable Notification Access", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
                     }
                 }
             }
@@ -404,7 +446,7 @@ fun MainScreen(
                         }
                     }
 
-                    Divider(color = Color(0xFF334155), thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF334155), thickness = 0.5.dp)
 
                     // 2. Phone & Audio Permissions
                     Row(
@@ -440,7 +482,7 @@ fun MainScreen(
                         }
                     }
 
-                    Divider(color = Color(0xFF334155), thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF334155), thickness = 0.5.dp)
 
                     // 3. Battery Optimization
                     Row(

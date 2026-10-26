@@ -17,18 +17,22 @@ import java.util.regex.Pattern
  * How it works:
  * During dialing: The system dialer creates an ongoing call notification with
  * text "Calling...", "Dialing..." and chronometer inactive.
- * The instant the remote party picks up: The dialer updates this notification,
- * setting EXTRA_SHOW_CHRONOMETER = true or changing the text to the elapsed timer
- * (e.g. 00:01). This listener catches that exact update and triggers the 250ms
- * vibration and simultaneous microphone mute guard immediately.
+ * The instant the remote party picks up:
+ * 1. EXTRA_SHOW_CHRONOMETER becomes true, OR
+ * 2. An elapsed timer pattern (e.g. "0:01", "00:01") appears in text/subtext, OR
+ * 3. In-call actions (Mute, Speaker, Hold, Keypad) appear, OR
+ * 4. Status text transitions to "in call" / "connected".
+ *
+ * This listener catches that exact update and triggers the 250ms vibration
+ * and simultaneous microphone mute guard immediately.
  */
 class CallNotificationListenerService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "CallNotifListener"
 
-        // Pattern matching call duration timers (e.g., "00:01", "0:05", "1:23:45")
-        private val DURATION_PATTERN = Pattern.compile("^([0-9]{1,2}:)?[0-9]{2}:[0-9]{2}$")
+        // Pattern matching call duration timers (e.g., "0:01", "00:01", "0:05", "1:23:45") anywhere in text
+        private val DURATION_PATTERN = Pattern.compile("(?<!\\d)([0-9]{1,2}:)?[0-9]{1,2}:[0-9]{2}(?!\\d)")
 
         // Dialing indicators in multiple languages
         private val DIALING_KEYWORDS = listOf(
@@ -36,11 +40,18 @@ class CallNotificationListenerService : NotificationListenerService() {
             "appel", "anruf", "llamando", "chamando", "вызов", "拨号", "発信"
         )
 
+        // Keywords appearing exclusively in in-call control actions or active call status
+        private val ACTIVE_CALL_KEYWORDS = listOf(
+            "ongoing", "in call", "connected", "call connected",
+            "en cours", "verbunden", "em chamada", "en llamada", "chiamata attiva"
+        )
+
         // Known dialer package names
         private val DIALER_PACKAGES = setOf(
             "com.google.android.dialer",
             "com.samsung.android.incallui",
             "com.samsung.android.dialer",
+            "com.samsung.android.app.telephonyui",
             "com.android.dialer",
             "com.android.phone",
             "com.android.server.telecom",
@@ -49,7 +60,8 @@ class CallNotificationListenerService : NotificationListenerService() {
             "com.oplus.dialer",
             "com.vivo.phone",
             "com.asus.contacts",
-            "com.transsion.phone"
+            "com.transsion.phone",
+            "com.motorola.mobiledialer"
         )
     }
 
@@ -68,13 +80,19 @@ class CallNotificationListenerService : NotificationListenerService() {
         CallEventCoordinator.addLog("Notification Call Monitor active & listening", source = "NotificationMonitor")
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (sbn == null) return
         val notification = sbn.notification ?: return
         val packageName = sbn.packageName ?: ""
         val category = notification.category
 
-        val isCallCategory = category == Notification.CATEGORY_CALL
-        val isDialerPkg = DIALER_PACKAGES.contains(packageName) || packageName.contains("dialer") || packageName.contains("incall")
+        val isCallCategory = (category == Notification.CATEGORY_CALL)
+        val isDialerPkg = DIALER_PACKAGES.contains(packageName) ||
+                packageName.contains("dialer", ignoreCase = true) ||
+                packageName.contains("incall", ignoreCase = true) ||
+                packageName.contains("phone", ignoreCase = true) ||
+                packageName.contains("telecom", ignoreCase = true) ||
+                packageName.contains("telephony", ignoreCase = true)
 
         if (!isCallCategory && !isDialerPkg) {
             return
@@ -87,44 +105,58 @@ class CallNotificationListenerService : NotificationListenerService() {
         val isChronometer = extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false)
         val combinedContent = "$title $text $subText".lowercase()
 
+        // Inspect notification action buttons (Dialers add Mute / Speaker / Hold only when connected)
+        val actions = notification.actions
+        val hasInCallAction = actions?.any { action ->
+            val label = action?.title?.toString()?.lowercase() ?: ""
+            label.contains("mute") || label.contains("mic") ||
+            label.contains("speaker") || label.contains("hold") ||
+            label.contains("keypad") || label.contains("silence") ||
+            label.contains("haut-parleur") || label.contains("altavoz")
+        } ?: false
+
         val key = sbn.key
         val callInfo = activeCallNotifications.getOrPut(key) {
             CallStateInfo()
         }
 
         val containsDialingWord = DIALING_KEYWORDS.any { combinedContent.contains(it) }
-        val matchesTimer = DURATION_PATTERN.matcher(text).matches() || DURATION_PATTERN.matcher(subText).matches()
-        val containsOngoingWord = combinedContent.contains("ongoing") ||
-                combinedContent.contains("in call") ||
-                combinedContent.contains("connected") ||
-                combinedContent.contains("en cours") ||
-                combinedContent.contains("verbunden")
+        val matchesTimer = DURATION_PATTERN.matcher(text).find() || DURATION_PATTERN.matcher(subText).find()
+        val containsOngoingWord = ACTIVE_CALL_KEYWORDS.any { combinedContent.contains(it) }
 
-        Log.d(TAG, "Call Notification [pkg=$packageName, chrono=$isChronometer, text='$text', title='$title']")
+        Log.d(TAG, "Call Notification [pkg=$packageName, chrono=$isChronometer, timer=$matchesTimer, inCallAction=$hasInCallAction, text='$text', title='$title']")
 
-        if (containsDialingWord && !callInfo.isAnswered) {
+        // If the notification indicates dialing state
+        if (containsDialingWord && !callInfo.isAnswered && !hasInCallAction) {
             callInfo.isDialing = true
             CallEventCoordinator.notifyCallStarted("Notification: $packageName", title.ifEmpty { "Dialing" })
             return
         }
 
-        // Check if call just answered:
+        // Check if call answered indicators are present:
         // 1. Chronometer active
-        // 2. Or duration timer appeared (e.g., "00:01")
+        // 2. Or duration timer appeared (e.g., "0:01", "00:01")
         // 3. Or text transitioned from dialing to ongoing/connected
-        val hasAnsweredIndicators = isChronometer || matchesTimer || containsOngoingWord
+        // 4. Or in-call control buttons (Mute/Speaker/Hold) are now present
+        val hasAnsweredIndicators = isChronometer || matchesTimer || containsOngoingWord || hasInCallAction
         val wasDialingOrNew = callInfo.isDialing || !callInfo.isAnswered
 
         if (hasAnsweredIndicators && wasDialingOrNew && !callInfo.isAnswered) {
             callInfo.isAnswered = true
             callInfo.isDialing = false
-            Log.i(TAG, ">>> Outgoing call answered detected! Chronometer=$isChronometer, text=$text <<<")
-            CallEventCoordinator.notifyCallAnswered(this, "Notification Call Monitor")
+            val triggerReason = when {
+                isChronometer -> "Chronometer active"
+                matchesTimer -> "Call timer active"
+                hasInCallAction -> "In-call controls active"
+                else -> "Call status connected"
+            }
+            Log.i(TAG, ">>> Outgoing call answered detected ($triggerReason)! pkg=$packageName, text=$text <<<")
+            CallEventCoordinator.notifyCallAnswered(this, "Notification Monitor ($triggerReason)")
         }
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        val key = sbn.key
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        val key = sbn?.key ?: return
         val info = activeCallNotifications.remove(key)
         if (info != null) {
             Log.d(TAG, "Call notification removed -> call ended")

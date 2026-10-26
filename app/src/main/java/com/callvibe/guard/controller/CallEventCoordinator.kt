@@ -38,6 +38,7 @@ object CallEventCoordinator {
 
     private val hasVibratedForCurrentCall = AtomicBoolean(false)
     private val isCallInProgress = AtomicBoolean(false)
+    private val lastVibrationTimestamp = java.util.concurrent.atomic.AtomicLong(0L)
 
     private val _eventLogs = MutableStateFlow<List<CallLogEntry>>(emptyList())
     val eventLogs: StateFlow<List<CallLogEntry>> = _eventLogs.asStateFlow()
@@ -88,8 +89,17 @@ object CallEventCoordinator {
             return
         }
 
+        val now = System.currentTimeMillis()
+        val timeSinceLast = now - lastVibrationTimestamp.get()
+
+        // If more than 10 seconds elapsed since last vibration, auto-rearm even if notifyCallEnded was missed
+        if (timeSinceLast > 10_000L) {
+            hasVibratedForCurrentCall.set(false)
+        }
+
         // Atomically ensure vibration is executed only ONCE per call
         if (hasVibratedForCurrentCall.compareAndSet(false, true)) {
+            lastVibrationTimestamp.set(now)
             isCallInProgress.set(true)
             val durationMs = prefs.getVibrationDuration()
             val muteMic = prefs.isMuteGuardEnabled()
