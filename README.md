@@ -1,6 +1,31 @@
-# CallVibe Guard - Android Call Connect Vibration & Mic Mute
+# CallVibe Guard - Android Call Connect Vibration & Mic Mute (v1.0.6)
 
-An Android utility application that triggers a **1/4-second (250ms) tactile vibration** the instant an outgoing phone call is answered by the remote party, while **simultaneously muting the microphone** so the receiver hears zero motor buzz or disturbance.
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Release](https://img.shields.io/badge/Release-v1.0.6-emerald.svg)](https://github.com/)
+[![Platform](https://img.shields.io/badge/Platform-Android_8.0+-orange.svg)](https://android.com)
+
+An open-source Android utility that triggers a **1/4-second (250ms) tactile vibration** the instant an outgoing phone call is answered by the remote party, while **simultaneously muting the microphone** so the receiver hears zero motor buzz or disturbance.
+
+---
+
+## 🎯 Use Case: Why CallVibe Guard?
+
+Have you ever made a phone call and had to hold your phone glued to your ear through endless ringing, waiting and wondering when the other person will finally pick up? Or stared at your screen waiting for the call timer to start?
+
+**CallVibe Guard solves this completely:**
+
+- **Dial & Rest Your Ear**: Place a call, keep the phone in your hand or rest it on your desk, and continue what you were doing.
+- **Instant Haptic Notification**: The exact second the receiver picks up and the call duration timer begins (`00:01`), CallVibe fires a clean 250ms haptic buzz alerting you to bring the phone to your ear.
+- **Acoustic Mic Mute Guard**: Vibration motors produce strong mechanical resonance (150Hz–220Hz). Normal dialer vibration tweaks cause a loud, jarring buzz in the receiver's ear the moment they say *"Hello?"*. CallVibe automatically silences the microphone for that exact quarter-second pulse and immediately unmutes at 280ms, giving the receiver crystal-clear silence.
+- **Universal & Privacy-First**: Operates seamlessly alongside Google Phone (Pixel), Samsung One UI Phone, Xiaomi HyperOS, OnePlus, and Motorola without replacing your default dialer, without root, and without sensitive permissions like call audio recording, call logs, or accessibility services.
+
+---
+
+## 📥 Download
+
+Pre-built APK binaries are available on the GitHub repository **Releases** page:
+
+👉 **[Download CallVibeGuard-v1.0.6.apk](../../releases/latest)**
 
 ---
 
@@ -14,20 +39,17 @@ When you try to turn on Notification Access for CallVibe Guard, you will likely 
 
 ### 🛠️ 5-Step Solution: Unlocking the Toggle
 
-Follow these exact steps to unlock the restricted permission:
-
 ```
 App Info ➔ Top Right Menu (⋮) ➔ "Allow restricted settings" ➔ Authenticate (PIN/Fingerprint)
 ```
 
 1. **Attempt the toggle first**:
-   - Open **CallVibe Guard** and tap **"Enable Notification Access"**.
+   - Open **CallVibe Guard** and tap **"👉 Tap Here to Enable Notification Access"**.
    - Tap on **CallVibe Guard** in the list. You will see the *"Restricted setting: Unavailable"* message. Tap **OK**.  
    *(Note: Android requires at least one toggle attempt before it reveals the unlock option in system settings).*
 
 2. **Open App Info for CallVibe Guard**:
-   - Long-press the **CallVibe Guard** app icon on your home screen or app drawer, then tap the **(i)** / **App info** icon.  
-   *(Alternatively: Open phone **Settings** ➔ **Apps** ➔ **See all apps** ➔ find **CallVibe Guard**).*
+   - In CallVibe Guard, tap **"⚙️ Open App Info (For 3-Dot ⋮ Menu)"** directly inside the app, or long-press the **CallVibe Guard** icon on your home screen and tap the **(i)** / **App info** icon.
 
 3. **Tap the 3-Dot Menu**:
    - Look in the **top-right corner** of the screen for the **three vertical dots (⋮)** menu.
@@ -39,7 +61,7 @@ App Info ➔ Top Right Menu (⋮) ➔ "Allow restricted settings" ➔ Authentica
    - You will see a confirmation toast: *"Restricted settings allowed for CallVibe Guard"*.
 
 5. **Enable Notification Access**:
-   - Return to **CallVibe Guard** and tap **"Enable Notification Access"** again (or reopen *Settings ➔ Device & app notifications ➔ CallVibe Guard*).
+   - Return to **CallVibe Guard** and tap **"Enable Notification Access"** again.
    - Turn the switch **ON** and tap **Allow**.
    - The status badge in CallVibe Guard will immediately turn green: **GUARD ACTIVE**!
 
@@ -53,19 +75,19 @@ App Info ➔ Top Right Menu (⋮) ➔ "Allow restricted settings" ➔ Authentica
 
 ## 🛡️ Sideloading & Google Play Protect Notice
 
-When downloading and installing the APK directly from GitHub Releases onto modern devices (especially Google Pixel):
+When installing the APK on modern devices (especially Google Pixel):
 
 1. **"App blocked to protect your device" or "Unrecognized app"**:
    - Tap **"More details"** (or dropdown arrow).
    - Tap **"Install anyway"**.
-2. **Google Play Protect Scan**:
+2. **Permissions & Security**:
    - CallVibe Guard contains zero ads, zero trackers, and zero telemetry. It only requests:
      - `VIBRATE` (for the 250ms haptic feedback)
      - `MODIFY_AUDIO_SETTINGS` (for the simultaneous mic mute guard)
      - `READ_PHONE_STATE` (for call state observation)
      - `POST_NOTIFICATIONS` (for foreground service keepalive)
      - `BIND_NOTIFICATION_LISTENER_SERVICE` (for detecting the instant call duration begins)
-   - High-risk permissions (`RECORD_AUDIO`, `CALL_PHONE`, `READ_CALL_LOG`, `ACCESSIBILITY`) have been intentionally removed so Play Protect will not flag the application.
+   - High-risk permissions (`RECORD_AUDIO`, `CALL_PHONE`, `READ_CALL_LOG`, `ACCESSIBILITY`) have been intentionally excluded so Play Protect will not flag the application.
 
 ---
 
@@ -114,7 +136,7 @@ On modern Android devices (Android 10 through Android 16), detecting when an out
 
 ## 📱 Quick Setup On Your Device
 
-1. Install the APK on your Android device and open **CallVibe Guard**.
+1. Install `CallVibeGuard-v1.0.6.apk` on your Android device and open **CallVibe Guard**.
 2. Tap **"📳 Test 1/4s Vibration & Mic Mute Now"** to confirm the motor vibrates firmly.
 3. In the **Readiness Checklist**:
    - Tap **Enable** next to **Notification Access** and toggle on **CallVibe Guard**.
@@ -125,27 +147,16 @@ On modern Android devices (Android 10 through Android 16), detecting when an out
 
 ---
 
-## 🚀 Building & Releasing the APK
-
-### Automated Cloud Build & Release (GitHub Actions)
-This repository includes `.github/workflows/release-apk.yml`.
-
-1. **Trigger via Git Tag**:
-   ```bash
-   git tag v1.0.2
-   git push origin v1.0.2
-   ```
-2. **Trigger Manually via GitHub UI**:
-   - Go to the **Actions** tab on your GitHub repository.
-   - Select **Build & Release Android APK** on the left.
-   - Click **Run workflow**, enter your tag (e.g. `v1.0.2`), and click **Run workflow**.
-3. Download the compiled `CallVibeGuard-v1.0.2.apk` from the **Releases** tab on GitHub!
-
----
-
 ## 🔋 Battery Optimization (Background Keepalive)
 
 To ensure Android does not kill the listener service when your phone is in deep sleep:
 1. Open phone **Settings** ➔ **Apps** ➔ **CallVibe Guard**.
 2. Tap **App battery usage** (or **Battery**).
 3. Select **Unrestricted** (or turn off **Put app to sleep**).
+
+---
+
+## 📄 License
+
+This project is open-source software licensed under the **[Apache License, Version 2.0](LICENSE)**.
+You may freely use, modify, distribute, and contribute to this project according to the terms of the Apache 2.0 license.
